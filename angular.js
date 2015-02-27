@@ -1,5 +1,6 @@
 /**
- * AngularJS 1.2.28-FORKED
+ * @license AngularJS v1.2.29-local+sha.a9f4433
+ * (c) 2010-2014 Google, Inc. http://angularjs.org
  * License: MIT
  */
 (function(window, document, undefined) {'use strict';
@@ -67,7 +68,7 @@ function minErr(module) {
       return match;
     });
 
-    message = message + '\nhttp://errors.angularjs.org/1.2.28/' +
+    message = message + '\nhttp://errors.angularjs.org/1.2.29-local+sha.a9f4433/' +
       (module ? module + '/' : '') + code;
     for (i = 2; i < arguments.length; i++) {
       message = message + (i == 2 ? '?' : '&') + 'p' + (i-2) + '=' +
@@ -1986,11 +1987,11 @@ function setupModuleLoader(window) {
  * - `codeName` – `{string}` – Code name of the release, such as "jiggling-armfat".
  */
 var version = {
-  full: '1.2.28',    // all of these placeholder strings will be replaced by grunt's
+  full: '1.2.29-local+sha.a9f4433',    // all of these placeholder strings will be replaced by grunt's
   major: 1,    // package task
   minor: 2,
-  dot: 28,
-  codeName: 'finnish-disembarkation'
+  dot: 29,
+  codeName: 'snapshot'
 };
 
 
@@ -15275,6 +15276,32 @@ function ampmGetter(date, formats) {
   return date.getHours() < 12 ? formats.AMPMS[0] : formats.AMPMS[1];
 }
 
+function getFirstThursdayOfYear(year) {
+    // 0 = index of January
+    var dayOfWeekOnFirst = (new Date(year, 0, 1)).getDay();
+    // 4 = index of Thursday (+1 to account for 1st = 5)
+    // 11 = index of *next* Thursday (+1 account for 1st = 12)
+    return new Date(year, 0, ((dayOfWeekOnFirst <= 4) ? 5 : 12) - dayOfWeekOnFirst);
+}
+
+function getThursdayThisWeek(datetime) {
+    return new Date(datetime.getFullYear(), datetime.getMonth(),
+      // 4 = index of Thursday
+      datetime.getDate() + (4 - datetime.getDay()));
+}
+
+function weekGetter(size) {
+   return function(date) {
+      var firstThurs = getFirstThursdayOfYear(date.getFullYear()),
+         thisThurs = getThursdayThisWeek(date);
+
+      var diff = +thisThurs - +firstThurs,
+         result = 1 + Math.round(diff / 6.048e8); // 6.048e8 ms per week
+
+      return padNumber(result, size);
+   };
+}
+
 var DATE_FORMATS = {
   yyyy: dateGetter('FullYear', 4),
     yy: dateGetter('FullYear', 2, 0, true),
@@ -15299,10 +15326,12 @@ var DATE_FORMATS = {
   EEEE: dateStrGetter('Day'),
    EEE: dateStrGetter('Day', true),
      a: ampmGetter,
-     Z: timeZoneGetter
+     Z: timeZoneGetter,
+    ww: weekGetter(2),
+     w: weekGetter(1)
 };
 
-var DATE_FORMATS_SPLIT = /((?:[^yMdHhmsaZE']+)|(?:'(?:[^']|'')*')|(?:E+|y+|M+|d+|H+|h+|m+|s+|a|Z))(.*)/,
+var DATE_FORMATS_SPLIT = /((?:[^yMdHhmsaZEw']+)|(?:'(?:[^']|'')*')|(?:E+|y+|M+|d+|H+|h+|m+|s+|a|Z|w+))(.*)/,
     NUMBER_STRING = /^\-?\d+$/;
 
 /**
@@ -15421,7 +15450,7 @@ function dateFilter($locale) {
   }
 
 
-  return function(date, format) {
+  return function(date, format, timezone) {
     var text = '',
         parts = [],
         fn, match;
@@ -15436,7 +15465,7 @@ function dateFilter($locale) {
       date = new Date(date);
     }
 
-    if (!isDate(date)) {
+    if (!isDate(date) || isNaN( date.getTime())) {
       return date;
     }
 
@@ -15451,6 +15480,10 @@ function dateFilter($locale) {
       }
     }
 
+    if (timezone && timezone === 'UTC') {
+      date = new Date(date.getTime());
+      date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+    }
     forEach(parts, function(value){
       fn = DATE_FORMATS[value];
       text += fn ? fn(date, $locale.DATETIME_FORMATS)
